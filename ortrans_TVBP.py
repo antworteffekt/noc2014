@@ -13,11 +13,11 @@ from pylab import *
 #x = SX.sym("x",4)  # x = [r, 0 ,r_dot, 0_dot]
 #u = SX.sym("u",2)
 
-N = 200
+N = 100
 nx = 4 # State size
-T = 2.5
+T = 25000
 
-x0 = array([3500,0,0,1]) # Initial State
+x0 = array([7000,0,0,1.0781e-3]) # Initial State
 u0 = array([0,0])
 
 Ss = T/float(N) #Size Step
@@ -26,13 +26,16 @@ orbitSim = zeros((nx,N))
 orbitSim = rkOrbit(x0, u0, T, N)
 
 #----- Plot ---------#
-px_plot = orbitSim[0,:]
-py_plot = orbitSim[1,:]
+r = orbitSim[0,:]
+theta = orbitSim[1,:]
+px = r*cos(theta)
+py = r*sin(theta)
+
 t = arange(0,T,Ss)
 fig1 = plt.figure(1)
-plot(t,px_plot,'ro-')
+plot(px, py ,'ro-')
 #plt.plot(t,p_rk4,'bo-')
-plt.xlabel('t [s]')
-plt.ylabel('p [m]')
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
 plt.title('Orbit Simulation')
 plt.grid(True)

@@ -114,22 +114,38 @@ x_current = array([1,0])
 while True:
     w_min["X",0] = x_current
     w_max["X",0] = x_current
-
-    # -----
-    # ADD MISSING, calculate w_new
-    # -----
-    # w_new = ...
-    #
-    g_fcn = MXFunction([W],[g]);  g_fcn.init()
-    R_fcn = MXFunction([W],[R]);  R_fcn.init()
     
-    # Functions for calculating the Jacobians of g and R
-    jac_g_fcn = g_fcn.jacobian(); jac_g_fcn.init()
-    jac_R_fcn = R_fcn.jacobian(); jac_R_fcn.init()
-
-
-    #
-    #
+    # Evaluation of the Jacobians of g and R
+    jac_g_fcn.setInput(w_k)
+    jac_R_fcn.setInput(w_k)
+    
+    jac_R_fcn.evaluate()    
+    jac_g_fcn.evaluate()
+    
+    jac_R = jac_R_fcn.getOutput(0)
+    Rq = jac_R_fcn.getOutput(1)
+    
+    g_grad = jac_g_fcn.getOutput(0)
+    geq = jac_g_fcn.getOutput(1)
+    
+    h_qp = mul(jac_R.T,jac_R); # Hessian of QP
+    R_grad = mul(jac_R.T,Rq) # Gradient of the Objective
+    
+    dw_max = DMatrix(w_max) - DMatrix(w_k)
+    dw_min = DMatrix(w_min) - DMatrix(w_k)
+    
+    qp_solver.setInput(h_qp, "h")
+    qp_solver.setInput(R_grad,"g") # Objective part
+    qp_solver.setInput(g_grad,"a") # Equalities function
+    qp_solver.setInput(dw_max, "ubx")
+    qp_solver.setInput(dw_min, "lbx")
+    qp_solver.setInput(-geq, "uba")
+    qp_solver.setInput(-geq, "lba")    
+    
+    qp_solver.evaluate();
+    dw =  qp_solver.getOutput("x");
+    
+    w_new = w_k + dw # New w after the step
 
     # Extract from the solution the first control
     sol = W(w_new)
@@ -166,4 +182,3 @@ while True:
     w_k["U",:-1] = sol["U",1:]
     w_k["X",-1] = sol["X",-1]
     w_k["U",-1] = sol["U",-1]
-    

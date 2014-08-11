@@ -17,7 +17,7 @@ N = 100
 nx = 4 # State size
 T = 25000
 
-x0 = array([7000,0,0,1.0781e-3]) # Initial State
+x0 = array([7000,0,1,1.0781e-3]) # Initial State
 u0 = array([0,0])
 
 Ss = T/float(N) #Size Step
@@ -25,7 +25,7 @@ nx = alen(x0)
 orbitSim = zeros((nx,N))
 orbitSim = rkOrbit(x0, u0, T, N)
 
-#----- Plot ---------#
+#----- Plot of Simulation ---------#
 r = orbitSim[0,:]
 theta = orbitSim[1,:]
 px = r*cos(theta)
@@ -39,3 +39,5 @@ plt.xlabel('x [m]')
 plt.ylabel('y [m]')
 plt.title('Orbit Simulation')
 plt.grid(True)
+
+# ---- NPL Formulation ---- #

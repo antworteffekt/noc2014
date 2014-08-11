@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 N = 100
 nx = 4 # State size
-T = 25000
+T = 2500
 
 u = SX.sym("u",2) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot]
@@ -52,7 +52,7 @@ X0 = MX.sym("X",nx)
 # ????? Because these are Steps
 # We believe the Integrator is sensitive to
 # these values
-M = 100
+M = 10
 DT = float(T) / float((N*M))
 XF = X0
 QF = 0
@@ -120,14 +120,14 @@ w_min = W(-inf)
 w_max = W(inf)
 
 # Control bounds
-#w_min["U",:] = array([0,0])
-#w_max["U",:] = array([2, 2])
+w_min["U",:] = array([0,0])
+w_max["U",:] = array([2, 2])
 
 # Initial Guess - Simulation
 w0 = W(0); w0["X",0] = x0; w0["U",0] = u0
 orbSim.setInput(w0["U",0],1)
 
-for l in range(M):
+for l in range(N):
     orbSim.setInput(w0["X",l],0)
     orbSim.evaluate()
     w0["X",l+1] = orbSim.getOutput(0)
@@ -163,9 +163,22 @@ r_opt = sol_W["X",:,0]
 plt.figure(1)
 plt.clf()
 plt.step(linspace(0,T,N),u_opt_r,'-.')
-plt.title("Orbit Transfer optimization - multiple shooting")
+plt.title("Orbit Transfer Control - multiple shooting")
 plt.xlabel('time')
 plt.legend(['u_r'])
 plt.grid()
+plt.step(linspace(0,T,N),u_opt_r,'-.')
+plt.title("Orbit Transfer Control - multiple shooting")
+plt.xlabel('time')
+plt.legend(['u_theta'])
+plt.grid()
 plt.show()
+plt.figure(3)
+plt.plot(linspace(0,T,N+1),r_opt,'r.-')
+plt.title("Orbit - radius")
+plt.xlabel('time')
+plt.ylabel('r [m]')
+plt.grid()
+plt.show()
+
 

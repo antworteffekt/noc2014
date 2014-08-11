@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 N = 100
 nx = 4 # State size
-T = 2500
+Tf = 2500
 
 u = SX.sym("u",2) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot]
@@ -49,16 +49,25 @@ orbODE.init()
 #Simulation of Orbit with r = R1
 U = MX.sym("U",2)
 X0 = MX.sym("X",nx)
+T0 = MX.sym("T")
 # ????? Because these are Steps
 # We believe the Integrator is sensitive to
 # these values
-M = 10
-DT = float(T) / float((N*M))
+#M = 10
+# Define NLP variables
+W = struct_symMX([
+      (
+        entry("X",shape=(nx,1),repeat=N+1),
+        entry("U",shape=(2,1),repeat=N)
+      ),
+      entry("T")
+])
+
+DT = T0
 XF = X0
 QF = 0
 R_terms = []
-
-for j in range(M):
+for j in range(N):
     [k1, k1q] = orbODE([XF,             U])
     [k2, k2q] = orbODE([XF + DT/2 * k1, U])
     [k3, k3q] = orbODE([XF + DT/2 * k2, U])
@@ -69,29 +78,23 @@ for j in range(M):
     #R_terms.append(U)
     
 #R_terms = vertcat(R_terms) # Concatenate terms
-orbSim = MXFunction([X0,U],[XF,QF])
+orbSim = MXFunction([X0,U,T0],[XF,QF])
 orbSim.setOption("name","orbSim")
 orbSim.init()
 
-# Define NLP variables
-W = struct_symMX([
-      (
-        entry("X",shape=(4,1),repeat=N+1),
-        entry("U",shape=(2,1),repeat=N)
-      )
-])
 
 # NLP constraints
 g = []
 
 J = 0
+
 # Terms in the Gauss-Newton objective
 #R = []
 
 # Build up a graph of integrator calls
 for k in range(N):
     # Call the integrator
-    [x_next_k, qF] = orbSim([ W["X",k], W["U",k] ])
+    [x_next_k, qF] = orbSim([W["X",k], W["U",k], W["T"]/float(N)])
 
     # Append continuity constraints
     g.append(x_next_k - W["X",k+1])
@@ -120,29 +123,34 @@ w_min = W(-inf)
 w_max = W(inf)
 
 # Control bounds
-w_min["U",:] = array([0,0])
-w_max["U",:] = array([2, 2])
+#w_min["U",:] = array([0,0])
+#w_max["U",:] = array([2, 2])
 
 # Initial Guess - Simulation
 w0 = W(0); w0["X",0] = x0; w0["U",0] = u0
+w0["T"] = 38
 orbSim.setInput(w0["U",0],1)
+orbSim.setInput(w0["T"],2)
 
 for l in range(N):
     orbSim.setInput(w0["X",l],0)
     orbSim.evaluate()
     w0["X",l+1] = orbSim.getOutput(0)
 
-
+#Time Optimality
+f = W["T"] + J
 # Initial Conditions
 w_min["X",:,0] = w_min["X",:,0] = 0.1
+w_min["T"] = -0.01
 
 w_min["X",0] = w_max["X",0] = x0
+w_max["T"] = 5000
 
 # Terminal Conditions
 w_min["X",-1] = w_max["X",-1] = xN
 
 # Create an NLP solver object
-nlp = MXFunction(nlpIn(x=W),nlpOut(f=J,g=g))
+nlp = MXFunction(nlpIn(x=W),nlpOut(f=f,g=g))
 nlp_solver = NlpSolver("ipopt", nlp)
 #nlp_solver.setOption("linear_solver", "mumps")
 nlp_solver.init()
@@ -160,25 +168,29 @@ sol_W = W(nlp_solver.getOutput("x"))
 u_opt_r = sol_W["U",:,0]
 u_opt_t = sol_W["U",:,1]
 r_opt = sol_W["X",:,0]
-plt.figure(1)
-plt.clf()
-plt.step(linspace(0,T,N),u_opt_r,'-.')
-plt.title("Orbit Transfer Control - multiple shooting")
-plt.xlabel('time')
-plt.legend(['u_r'])
-plt.grid()
-plt.step(linspace(0,T,N),u_opt_r,'-.')
-plt.title("Orbit Transfer Control - multiple shooting")
-plt.xlabel('time')
-plt.legend(['u_theta'])
-plt.grid()
-plt.show()
-plt.figure(3)
-plt.plot(linspace(0,T,N+1),r_opt,'r.-')
-plt.title("Orbit - radius")
-plt.xlabel('time')
-plt.ylabel('r [m]')
-plt.grid()
-plt.show()
+print sol_W["T"]
+#plt.figure(1)
+#plt.clf()
+#plt.step(linspace(0,T,N),u_opt_r,'-.')
+#plt.title("Orbit Transfer Control - multiple shooting")
+#plt.xlabel('time')
+#plt.legend(['u_r'])
+#plt.grid()
+#plt.show()
+#plt.figure(2)
+#plt.clf()
+#plt.step(linspace(0,T,N),u_opt_t,'r-')
+#plt.title("Orbit Transfer Control - multiple shooting")
+#plt.xlabel('time')
+#plt.legend(['u_theta'])
+#plt.grid()
+#plt.show()
+#plt.figure(3)
+#plt.plot(linspace(0,T,N+1),r_opt,'r.-')
+#plt.title("Orbit - radius")
+#plt.xlabel('time')
+#plt.ylabel('r [m]')
+#plt.grid()
+#plt.show()
 
 

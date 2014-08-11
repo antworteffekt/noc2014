@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 
 N = 50
 nx = 4 # State size
-nu = 2 # Control size
+nu = 2 # Control Size
+Tf = 38
 
 u = SX.sym("u",2) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot]
@@ -21,7 +22,7 @@ x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot]
 # Create Initial Point Value as equal bounds
 x0 = array([7000,0,0,1.0781e-3]) # Initial State
 u0 = array([0,0])
-xN = array([8000,pi,0,8.82337e-4])
+xN = array([8000,pi,0,8.82337e-4]) # Final State
 
 #System dynamics
 G = 6.67384e-11
@@ -49,22 +50,23 @@ orbODE.init()
 #Simulation of Orbit with r = R1
 U = MX.sym("U",nu)
 X0 = MX.sym("X",nx)
-T0 = MX.sym("T")
-
+# ????? Because these are Steps
+# We believe the Integrator is sensitive to
+# these values
 # Define NLP variables
 W = struct_symMX([
       (
         entry("X",shape=(nx,1),repeat=N+1),
         entry("U",shape=(2,1),repeat=N)
-      ),
-      entry("T")
+      )
 ])
 
-DT = T0
+#RK4 with M Steps
 XF = X0
+M = 10; DT = float(Tf)/float((N*M))
 QF = 0
 R_terms = []
-for j in range(N):
+for j in range(M):
     [k1, k1q] = orbODE([XF,             U])
     [k2, k2q] = orbODE([XF + DT/2 * k1, U])
     [k3, k3q] = orbODE([XF + DT/2 * k2, U])
@@ -75,7 +77,7 @@ for j in range(N):
     #R_terms.append(U)
     
 #R_terms = vertcat(R_terms) # Concatenate terms
-orbSim = MXFunction([X0,U,T0],[XF,QF])
+orbSim = MXFunction([X0,U],[XF,QF])
 orbSim.setOption("name","orbSim")
 orbSim.init()
 
@@ -91,7 +93,7 @@ J = 0
 # Build up a graph of integrator calls
 for k in range(N):
     # Call the integrator
-    [x_next_k, qF] = orbSim([W["X",k], W["U",k], W["T"]/float(N)])
+    [x_next_k, qF] = orbSim([W["X",k], W["U",k]])
 
     # Append continuity constraints
     g.append(x_next_k - W["X",k+1])
@@ -125,24 +127,20 @@ w_max = W(inf)
 
 # Initial Guess - Simulation
 w0 = W(0); w0["X",0] = x0; w0["U",0] = u0
-w0["T"] = 39.0
 orbSim.setInput(w0["U",0],1)
-orbSim.setInput(w0["T"]/float(N),2)
 
 for l in range(N):
     orbSim.setInput(w0["X",l],0)
     orbSim.evaluate()
     w0["X",l+1] = orbSim.getOutput(0)
 
-#Time Optimality
-f = W["T"]
+#Cost Optimality
+f = J
 # Initial Conditions
-w_min["X",:,0] = 6999.5
+w_min["X",:,0] = 7000.5
 w_max["X",:,0] = 8000.5
-w_min["T"] = 9.29 # Dummy Value - I have no idea what I'm doing
 
 w_min["X",0] = w_max["X",0] = x0
-w_max["T"] = 500.0
 
 # Terminal Conditions
 w_min["X",-1] = w_max["X",-1] = xN
@@ -170,10 +168,9 @@ r_opt = sol_W["X",:,0]
 theta_opt = sol_W["X",:,1]
 px_opt = r_opt * cos(theta_opt)
 py_opt = r_opt * sin(theta_opt)
-tf = sol_W["T"]; print tf
 plt.figure(1)
 plt.clf()
-plt.step(linspace(0,tf,N),u_opt_r,'-.')
+plt.step(linspace(0,Tf,N),u_opt_r,'-.')
 plt.title("Orbit Transfer Control - multiple shooting")
 plt.xlabel('time')
 plt.legend(['u_r'])
@@ -181,23 +178,16 @@ plt.grid()
 plt.show()
 plt.figure(2)
 plt.clf()
-plt.step(linspace(0,tf,N),u_opt_t,'r-')
+plt.step(linspace(0,Tf,N),u_opt_t,'r-')
 plt.title("Orbit Transfer Control - multiple shooting")
 plt.xlabel('time')
 plt.legend(['u_theta'])
 plt.grid()
 plt.show()
 plt.figure(3)
-plt.plot(linspace(0,tf,N+1),r_opt,'r.-')
+plt.plot(linspace(0,Tf,N+1),r_opt,'r.-')
 plt.title("Orbit - radius")
 plt.xlabel('time')
 plt.ylabel('r [m]')
-plt.grid()
-plt.show()
-plt.figure(4)
-plt.plot(px_opt, py_opt,'b.-')
-plt.title("Orbit - x vs y")
-plt.xlabel('Position in x [m]')
-plt.ylabel('Position in y [m]')
 plt.grid()
 plt.show()

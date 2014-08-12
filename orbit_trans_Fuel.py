@@ -10,19 +10,18 @@ from casadi.tools import *
 from pylab import *
 import matplotlib.pyplot as plt
 
-
-N = 60
+N = 50
 nx = 5 # State size - Added mass
 nu = 2 # Control Size
-tguess = 3000.0
+tguess = 3232.0
 
 u = SX.sym("u",nu) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot, mass]
 
 # Create Initial Point Value as equal bounds
-fuel0 = 40
+fuel0 = 40000
 x0 = array([7000, 0, 0 ,1.0781e-3, fuel0]) # Initial State
-u0 = array([0.0,0.006])
+u0 = array([0.0,0.0])
 xN = array([8000, pi, 0, 8.82337e-4,10000]) # Final State
 
 #System dynamics
@@ -41,8 +40,8 @@ rdotdot = -mu/(r**2) + u[0]/m + r*(thetadot**2)
 thetadotdot =  u[1]/(r*m) - (2*thetadot*rdot)/r
 
 us = 1e0
-mdot = -1*(sqrt(1 + (u[0]**2 + u[1]**2)*us**2) - 1)/us;
-#mdot = -1/(9.81*450) * sqrt (u[0]**2 + u[1]**2 + 1e-10)
+#mdot = -1*(sqrt(1 + (u[0]**2 + u[1]**2)*us**2) - 1)/us;
+mdot = -1/(450) * sqrt(u[0]**2 + u[1]**2 + 1e-10)
 
 xdot = vertcat([rdot, thetadot, rdotdot, thetadotdot, mdot])
 qdot = u[0]**2 + u[1]**2
@@ -139,12 +138,13 @@ r_0 = w0["X",:,0]
 theta_0 = w0["X",:,1]
 px_0 = r_0 * cos(theta_0)
 py_0 = r_0 * sin(theta_0)
-figure(6)
-plot(px_0,py_0)
-figure(7)
-plot(linspace(0,tguess,N+1),w0["X",:,4])
+#figure(6)
+#plot(px_0,py_0)
+#figure(7)
+#plot(linspace(0,tguess,N+1),w0["X",:,4])
+
 #Cost Optimality
-f = W["X",-1,4]
+f = W["X",-1,4] - J
 
 # Construct and populate the vectors with
 # upper and lower simple bounds
@@ -159,7 +159,7 @@ w_min["X",:,0] = x0[0] - 100
 w_max["X",:,0] = xN[0] + 100
 w_min["X",:,2] = -0.001
 w_min["X",:,4] = 1
-w_max["X",:,4] = fuel0 + 1
+w_max["X",:,4] = fuel0 + 100
 w_min["T"] = 30.0
 w_max["T"] = 10000.0
 
@@ -171,7 +171,7 @@ w_min["X",-1] = w_max["X",-1] = xN
 w_min["X",-1,1] = 0
 w_max["X",-1,1] = 1.5*pi
 w_min["X",-1,4] = 10
-w_max["X",-1,4] = fuel0 + 1
+w_max["X",-1,4] = fuel0 + 100
 #w_max["X",-1,4] = 4000
 
 # Create an NLP solver object

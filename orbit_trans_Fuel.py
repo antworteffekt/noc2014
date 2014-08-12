@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 N = 50
 nx = 5 # State size - Added mass
 nu = 2 # Control Size
-tguess = 3232.0
+tguess = 3500.0
 
 u = SX.sym("u",nu) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot, mass]
@@ -41,7 +41,7 @@ thetadotdot =  u[1]/(r*m) - (2*thetadot*rdot)/r
 
 us = 1e0
 #mdot = -1*(sqrt(1 + (u[0]**2 + u[1]**2)*us**2) - 1)/us;
-mdot = -1/(450) * sqrt(u[0]**2 + u[1]**2 + 1e-10)
+mdot = -1/(9.8*450) * sqrt(u[0]**2 + u[1]**2 + 1e-10)
 
 xdot = vertcat([rdot, thetadot, rdotdot, thetadotdot, mdot])
 qdot = u[0]**2 + u[1]**2
@@ -106,7 +106,7 @@ for k in range(N):
     g.append(x_next_k - W["X",k+1])
 
     # Append Terminal Cost
-    #J += qF
+    J += qF
     # Append Gauss-Newton objective terms
     #R.append(R_terms)
 
@@ -144,7 +144,7 @@ py_0 = r_0 * sin(theta_0)
 #plot(linspace(0,tguess,N+1),w0["X",:,4])
 
 #Cost Optimality
-f = W["X",-1,4] - J
+f = W["X",-1,4] - W["T"] - J
 
 # Construct and populate the vectors with
 # upper and lower simple bounds
@@ -169,7 +169,7 @@ w_min["X",0] = w_max["X",0] = x0
 # Terminal Conditions
 w_min["X",-1] = w_max["X",-1] = xN
 w_min["X",-1,1] = 0
-w_max["X",-1,1] = 1.5*pi
+w_max["X",-1,1] = pi
 w_min["X",-1,4] = 10
 w_max["X",-1,4] = fuel0 + 100
 #w_max["X",-1,4] = 4000

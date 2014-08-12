@@ -15,13 +15,13 @@ N = 50
 nx = 4 # State size
 nu = 2 # Control size
 
-u = SX.sym("u",2) # Thrust Controls
+u = SX.sym("u",nu) # Thrust Controls
 x = SX.sym("x",nx) # States [x,theta, x_dot, theta_dot]
 
-# Create Initial Point Value as equal bounds
+# Create TPV as equal bounds
 x0 = array([7000,0,0,1.0781e-3]) # Initial State
 u0 = array([0,0])
-xN = array([8000,pi,0,8.82337e-4])
+xN = array([8000,2*pi,0,8.82337e-4]) # Final State (Stable?)
 
 #System dynamics
 G = 6.67384e-11
@@ -120,8 +120,8 @@ w_min = W(-inf)
 w_max = W(inf)
 
 # Control bounds
-#w_min["U",:] = array([0,0])
-#w_max["U",:] = array([2, 2])
+w_min["U",:] = array([-1000,-1000])
+w_max["U",:] = array([1000, 1000])
 
 # Initial Guess - Simulation
 w0 = W(0); w0["X",0] = x0; w0["U",0] = u0
@@ -135,23 +135,26 @@ for l in range(N):
     w0["X",l+1] = orbSim.getOutput(0)
 
 #Time Optimality
-f = W["T"]
+f = W["T"] + J
+
 # Initial Conditions
 w_min["X",:,0] = 6999.5
 w_max["X",:,0] = 8000.5
-w_min["T"] = 9.29 # Dummy Value - I have no idea what I'm doing
+w_min["T"] = -0.01 # Dummy Value - I have no idea what I'm doing
 
 w_min["X",0] = w_max["X",0] = x0
 w_max["T"] = 500.0
 
 # Terminal Conditions
 w_min["X",-1] = w_max["X",-1] = xN
+w_min["X",-1,1] = 0
+w_max["X",-1,1] = 6*pi
 
 # Create an NLP solver object
 nlp = MXFunction(nlpIn(x=W),nlpOut(f=f,g=g))
 nlp_solver = NlpSolver("ipopt", nlp)
 nlp_solver.setOption("linear_solver", "mumps")
-nlp_solver.setOption("max_iter",100)
+nlp_solver.setOption("max_iter",200)
 nlp_solver.init()
 nlp_solver.setInput(w0,"x0")
 nlp_solver.setInput(w_max,"ubx")
@@ -171,33 +174,28 @@ theta_opt = sol_W["X",:,1]
 px_opt = r_opt * cos(theta_opt)
 py_opt = r_opt * sin(theta_opt)
 tf = sol_W["T"]; print tf
-plt.figure(1)
+fig1 = plt.figure(1)
 plt.clf()
-plt.step(linspace(0,tf,N),u_opt_r,'-.')
+plt.step(linspace(0,tf,N),u_opt_r,'b-.',linspace(0,tf,N),u_opt_t,'r-.')
 plt.title("Orbit Transfer Control - multiple shooting")
 plt.xlabel('time')
-plt.legend(['u_r'])
+plt.legend(['u_r','u_t'])
 plt.grid()
 plt.show()
-plt.figure(2)
-plt.clf()
-plt.step(linspace(0,tf,N),u_opt_t,'r-')
-plt.title("Orbit Transfer Control - multiple shooting")
-plt.xlabel('time')
-plt.legend(['u_theta'])
-plt.grid()
-plt.show()
-plt.figure(3)
+fig1.savefig('Orbit_Control_TJ.jpg')
+fig2 = plt.figure(2)
 plt.plot(linspace(0,tf,N+1),r_opt,'r.-')
-plt.title("Orbit - radius")
+plt.title("Orbit - Trajectory")
 plt.xlabel('time')
 plt.ylabel('r [m]')
 plt.grid()
 plt.show()
-plt.figure(4)
-plt.plot(px_opt, py_opt,'b.-')
-plt.title("Orbit - x vs y")
+fig2.savefig('Orbit_Radius_TJ.jpg')
+fig3 = plt.figure(3)
+plt.plot(px_opt, py_opt,'g.-')
+plt.title("Orbit - Trajectory in x vs y")
 plt.xlabel('Position in x [m]')
 plt.ylabel('Position in y [m]')
 plt.grid()
 plt.show()
+fig3.savefig('Orbit_XY_TJ.jpg')
